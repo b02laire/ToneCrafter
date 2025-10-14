@@ -7,6 +7,7 @@ import torchaudio
 from torch.utils.data import DataLoader
 from idmt_audiofx_dataset import IDMTAudioFXDataset
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def spectral_distance(x, y, n_fft=1024, hop_length=None, eps=1e-7):
     """
@@ -24,9 +25,9 @@ def spectral_distance(x, y, n_fft=1024, hop_length=None, eps=1e-7):
     if hop_length is None:
         hop_length = n_fft // 4
 
-    X = torch.stft(x.to("cuda"), n_fft=n_fft, hop_length=hop_length, window=torch.hann_window(n_fft).to("cuda"),
+    X = torch.stft(x.to(device), n_fft=n_fft, hop_length=hop_length, window=torch.hann_window(n_fft).to(device),
                    return_complex=True)
-    Y = torch.stft(y.to("cuda"), n_fft=n_fft, hop_length=hop_length, window=torch.hann_window(n_fft).to("cuda"),
+    Y = torch.stft(y.to(device), n_fft=n_fft, hop_length=hop_length, window=torch.hann_window(n_fft).to(device),
                    return_complex=True)
 
     # Magnitude squared (power)
@@ -48,16 +49,24 @@ class GuitarMLP(nn.Module):
         in_dim = window_size
 
         for i in range(num_layers - 1):
-            layers += [nn.Linear(in_dim, hidden_size), nn.ReLU()]
+            layers += [nn.Linear(in_dim, hidden_size),]
             in_dim = hidden_size
 
         layers += [nn.Linear(in_dim, window_size)]  # output same size as input
+        layers += [nn.BatchNorm1d(window_size)]
+        layers += [nn.ReLU()]
+        layers += [nn.Dropout(.3)]
+
         self.net = nn.Sequential(*layers)
 
     def forward(self, x):
         # x: (batch, window_size)
         return self.net(x)
 
+    def init_parameters(self):
+        """ Initialize internal parameters (sub-modules) """
+        for param in self.parameters():
+            param.data.uniform_(-0.01, 0.01)
 
 # Dataset and loader
 dataset = IDMTAudioFXDataset(
@@ -68,20 +77,22 @@ dataset = IDMTAudioFXDataset(
 loader = DataLoader(dataset, batch_size=96, shuffle=True, num_workers=6, persistent_workers=True)
 
 # Model + optimizer
-model = GuitarMLP(window_size=2048).to("cuda")
-model.load_state_dict(torch.load("models/test_cuda.pt"))
-# model.compile()
+model = GuitarMLP(window_size=2048).to(device)
+model.init_parameters()
+# model.load_state_dict(torch.load("models/test_cuda.pt"))
+model.compile()
+
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 criterion = spectral_distance
 
 # Training
 print(time.strftime('%H:%M:%S', time.localtime()))
-for epoch in range(4*60*60*5):
+for epoch in range(20):
     start = time.time()
     total_loss = 0
     for dry, wet in loader:
-        dry = dry.to("cuda")
-        wet = wet.to("cuda")
+        dry = dry.to(device)
+        wet = wet.to(device)
 
         pred = model(dry)
         loss = criterion(pred, wet)
@@ -101,7 +112,7 @@ torch.save(model.state_dict(), Path("models/test_cuda.pt"))
 model.eval()
 
 dry, sr = torchaudio.load("Clean.wav")
-dry = dry.to("cuda")
+dry = dry.to(device)
 
 # Split into windows and process
 window_size = 2048
