@@ -7,6 +7,7 @@ import torchaudio
 from torch.utils.data import DataLoader
 from idmt_audiofx_dataset import IDMTAudioFXDataset
 
+
 def spectral_distance(x, y, n_fft=1024, hop_length=None, eps=1e-7):
     """
     Spectral distance loss between waveforms x and y.
@@ -23,8 +24,10 @@ def spectral_distance(x, y, n_fft=1024, hop_length=None, eps=1e-7):
     if hop_length is None:
         hop_length = n_fft // 4
 
-    X = torch.stft(x.to("cuda"), n_fft=n_fft, hop_length=hop_length, return_complex=True)
-    Y = torch.stft(y.to("cuda"), n_fft=n_fft, hop_length=hop_length, return_complex=True)
+    X = torch.stft(x.to("cuda"), n_fft=n_fft, hop_length=hop_length, window=torch.hann_window(n_fft).to("cuda"),
+                   return_complex=True)
+    Y = torch.stft(y.to("cuda"), n_fft=n_fft, hop_length=hop_length, window=torch.hann_window(n_fft).to("cuda"),
+                   return_complex=True)
 
     # Magnitude squared (power)
     X_mag = X.abs().pow(2)
@@ -56,8 +59,6 @@ class GuitarMLP(nn.Module):
         return self.net(x)
 
 
-
-
 # Dataset and loader
 dataset = IDMTAudioFXDataset(
     lists_root="dataset/Gitarre polyphon/Lists",
@@ -74,11 +75,11 @@ optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 criterion = spectral_distance
 
 # Training
-for epoch in range(5000):
+print(time.strftime('%H:%M:%S', time.localtime()))
+for epoch in range(4*60*60*5):
     start = time.time()
     total_loss = 0
     for dry, wet in loader:
-
         dry = dry.to("cuda")
         wet = wet.to("cuda")
 
@@ -91,8 +92,10 @@ for epoch in range(5000):
         total_loss += loss.item()
     epoch_time = time.time() - start
 
-    if (epoch+1) % 10 == 0 or epoch == 0:
-        print(f"Epoch [{epoch+1}/{len(loader)}], Loss: {loss.item():.4f}, Time: {epoch_time:.4f}")
+    if (epoch + 1) % 10 == 0 or epoch == 0:
+        print(f"Epoch [{epoch + 1}/{4*60*60*5}], Loss: {loss.item():.4f}, Time: {epoch_time:.4f}")
+
+print(time.strftime('%H:%M:%S', time.localtime()))
 torch.save(model.state_dict(), Path("models/test_cuda.pt"))
 
 model.eval()
@@ -104,7 +107,7 @@ dry = dry.to("cuda")
 window_size = 2048
 wet = []
 for i in range(0, dry.size(-1), window_size):
-    chunk = dry[:, i:i+window_size]
+    chunk = dry[:, i:i + window_size]
     if chunk.size(-1) < window_size:
         chunk = torch.nn.functional.pad(chunk, (0, window_size - chunk.size(-1)))
     with torch.no_grad():
@@ -113,4 +116,3 @@ for i in range(0, dry.size(-1), window_size):
 
 wet = torch.cat(wet, dim=-1)
 torchaudio.save("chorus_mlp_output.wav", wet, sr)
-
