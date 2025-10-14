@@ -7,6 +7,36 @@ import torchaudio
 from torch.utils.data import DataLoader
 from idmt_audiofx_dataset import IDMTAudioFXDataset
 
+def spectral_distance(x, y, n_fft=1024, hop_length=None, eps=1e-7):
+    """
+    Spectral distance loss between waveforms x and y.
+    Based on: log(|STFT(x)|^2 + eps) - log(|STFT(y)|^2 + eps)
+
+    Args:
+        x, y: Tensors of shape (batch, time)
+        n_fft: FFT size
+        hop_length: hop length for STFT (defaults to n_fft // 4)
+        eps: numerical stability constant
+    Returns:
+        scalar tensor (mean L1 loss)
+    """
+    if hop_length is None:
+        hop_length = n_fft // 4
+
+    X = torch.stft(x, n_fft=n_fft, hop_length=hop_length, return_complex=True)
+    Y = torch.stft(y, n_fft=n_fft, hop_length=hop_length, return_complex=True)
+
+    # Magnitude squared (power)
+    X_mag = X.abs().pow(2)
+    Y_mag = Y.abs().pow(2)
+
+    # Log compression
+    X_log = torch.log(X_mag + eps)
+    Y_log = torch.log(Y_mag + eps)
+
+    loss = torch.nn.functional.l1_loss(X_log, Y_log)
+    return loss
+
 
 class GuitarMLP(nn.Module):
     def __init__(self, window_size=2048, hidden_size=2048, num_layers=6):
@@ -41,7 +71,7 @@ model = GuitarMLP(window_size=2048)
 # model.load_state_dict(torch.load("models/test_id.pt"))
 model.compile()
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
-criterion = nn.MSELoss()
+criterion = spectral_distance
 
 # Training
 for epoch in range(300):
