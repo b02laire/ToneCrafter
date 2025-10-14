@@ -80,7 +80,7 @@ loader = DataLoader(dataset, batch_size=96, shuffle=True, num_workers=6, persist
 model = GuitarMLP(window_size=2048).to(device)
 model.init_parameters()
 # model.load_state_dict(torch.load("models/test_cuda.pt"))
-model.compile()
+# model.compile()
 
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 criterion = spectral_distance
@@ -101,13 +101,14 @@ for epoch in range(20):
         loss.backward()
         optimizer.step()
         total_loss += loss.item()
+
     epoch_time = time.time() - start
 
     if (epoch + 1) % 10 == 0 or epoch == 0:
         print(f"Epoch [{epoch + 1}/{4*60*60*5}], Loss: {loss.item():.4f}, Time: {epoch_time:.4f}")
 
 print(time.strftime('%H:%M:%S', time.localtime()))
-torch.save(model.state_dict(), Path("models/test_cuda.pt"))
+torch.save(model.state_dict(), Path("models/test_mlp.pt"))
 
 model.eval()
 
