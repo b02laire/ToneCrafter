@@ -61,8 +61,8 @@ class IDMTAudioFXDataset(Dataset):
 
     def __getitem__(self, idx):
         dry_path, wet_path, key = self.pairs[idx]
-        dry, _ = torchaudio.load_with_torchcodec(dry_path)
-        wet, _ = torchaudio.load_with_torchcodec(wet_path)
+        dry, _ = torchaudio.load(dry_path)
+        wet, _ = torchaudio.load(wet_path)
 
         # # Convert to mono (average channels)
         dry, wet = dry.mean(0), wet.mean(0)

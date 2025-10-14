@@ -67,9 +67,9 @@ dataset = IDMTAudioFXDataset(
 loader = DataLoader(dataset, batch_size=256, shuffle=True, num_workers=4)
 
 # Model + optimizer
-model = GuitarMLP(window_size=2048)
+model = GuitarMLP(window_size=2048).to("cuda")
 # model.load_state_dict(torch.load("models/test_id.pt"))
-model.compile()
+# model.compile()
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 criterion = spectral_distance
 
@@ -77,6 +77,9 @@ criterion = spectral_distance
 for epoch in range(300):
     total_loss = 0
     for dry, wet in loader:
+
+        dry = dry.to("cuda")
+        wet = wet.to("cuda")
 
         pred = model(dry)
         loss = criterion(pred, wet)
@@ -86,14 +89,14 @@ for epoch in range(300):
         optimizer.step()
         total_loss += loss.item()
 
-    print(f"{time.strftime("%H:%M:%S", time.localtime())}"
+    print(f"{time.strftime('%H:%M:%S', time.localtime())}"
           f" Epoch {epoch+1}: Loss = {total_loss/len(loader):.6f}")
 torch.save(model.state_dict(), Path("models/test_id.pt"))
 
 model.eval()
 
-dry, sr = torchaudio.load_with_torchcodec("Clean.wav")
-
+dry, sr = torchaudio.load("Clean.wav")
+dry = dry.to("cuda")
 
 # Split into windows and process
 window_size = 2048
@@ -107,5 +110,5 @@ for i in range(0, dry.size(-1), window_size):
     wet.append(out.cpu())
 
 wet = torch.cat(wet, dim=-1)
-torchaudio.save_with_torchcodec("chorus_mlp_output.wav", wet, sr)
+torchaudio.save("chorus_mlp_output.wav", wet, sr)
 
