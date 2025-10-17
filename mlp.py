@@ -43,13 +43,13 @@ def spectral_distance(x, y, n_fft=1024, hop_length=None, eps=1e-7):
 
 
 class GuitarMLP(nn.Module):
-    def __init__(self, window_size=2048, hidden_size=1024, num_layers=6):
+    def __init__(self, window_size=2048, hidden_size=10, num_layers=3):
         super().__init__()
         layers = []
         in_dim = window_size
 
         for i in range(num_layers - 1):
-            layers += [nn.Linear(in_dim, hidden_size),]
+            layers += [nn.Linear(in_dim, hidden_size), nn.LeakyReLU()]
             in_dim = hidden_size
 
         layers += [nn.Linear(in_dim, window_size)]  # output same size as input
@@ -81,14 +81,14 @@ loader = DataLoader(dataset, batch_size=96, shuffle=True, num_workers=6, persist
 model = GuitarMLP(window_size=2048).to(device)
 model.init_parameters()
 # model.load_state_dict(torch.load("models/test_cuda.pt"))
-model.compile()
+# model.compile()
 
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 criterion = spectral_distance
 
 # Training
 print(time.strftime('%H:%M:%S', time.localtime()))
-for epoch in range(200):
+for epoch in range(10):
     start = time.time()
     total_loss = 0
     for dry, wet in loader:
