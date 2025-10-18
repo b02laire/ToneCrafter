@@ -83,3 +83,47 @@ class IDMTAudioFXDataset(Dataset):
             wet = torch.nn.functional.pad(wet, (0, pad))
 
         return dry.float(), wet.float()
+
+class IDMTAudioFXClassification(Dataset):
+    """
+    Pairs signal and label from the IDMT SMT-Audio-Effects dataset.
+    """
+
+    def __init__(self, lists_root, samples_root, window_size=2048):
+        self.window_size = window_size
+        self.lists_root = Path(lists_root)
+        self.samples_root = Path(samples_root)
+
+
+        pairs= []
+        for folder in self.samples_root:
+            for audio in folder.glob("*.wav"):
+                pairs.append([self.samples_root / folder / audio, folder])
+
+        self.pairs = pairs
+        print(f"[IDMT FX] Found {len(pairs)} paired samples")
+
+    def __len__(self):
+        return len(self.pairs)
+
+    def __getitem__(self, idx):
+        audio_path, label = self.pairs[idx]
+        audio, _ = torchaudio.load(audio_path)
+
+
+        # # Convert to mono (average channels)
+        audio = audio.mean(0)
+
+        # Normalize
+        audio = audio / (audio.abs().max() + 1e-9)
+
+        # Random crop or pad
+        L = self.window_size
+        if len(audio) > L:
+            start = np.random.randint(0, len(audio) - L)
+            audio = audio[start:start+L]
+        else:
+            pad = L - len(audio)
+            audio = torch.nn.functional.pad(audio, (0, pad))
+
+        return audio.float(), label
