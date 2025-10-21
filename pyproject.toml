@@ -14,9 +14,10 @@ cpu = [
     "numpy"
 ]
 gpu = [
-    "torch==1.13.1",
-    "torchaudio==0.13.1",
-    "numpy<2"
+    "torch",
+    "torchaudio",
+    "torchcodec",
+    "numpy"
 ]
 [tool.uv]
 conflicts = [
@@ -31,16 +32,16 @@ conflicts = [
 [tool.uv.sources]
 torch = [
   { index = "pytorch-cpu", extra = "cpu" },
-  { index = "pytorch-cu117", extra = "gpu" },
+  { index = "pytorch-cu130", extra = "gpu" },
 ]
 
 torchaudio = [
     { index = "pytorch-cpu" , extra ="cpu" },
-    { index = "pytorch-cu117", extra = "gpu" },
+    { index = "pytorch-cu130", extra = "gpu" },
 ]
 torchcodec = [
     { index = "pytorch-cpu" , extra ="cpu" },
-#    { index = "pytorch-cu117", extra = "gpu" },
+    { index = "pytorch-cu130", extra = "gpu" },
 ]
 
 [[tool.uv.index]]
@@ -49,6 +50,6 @@ url = "https://download.pytorch.org/whl/cpu"
 explicit = true
 
 [[tool.uv.index]]
-name = "pytorch-cu117"
-url = "https://download.pytorch.org/whl/cu117"
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
 explicit = true
