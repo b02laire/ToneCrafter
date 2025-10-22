@@ -1,7 +1,12 @@
+import logging
+import os
+from doctest import debug
+
 import torch
 import torchaudio
 from torch.utils.data import Dataset
 from pathlib import Path
+from sklearn.preprocessing import LabelEncoder
 import xml.etree.ElementTree as ET
 import numpy as np
 
@@ -27,7 +32,8 @@ def parse_xml_dir(list_dir):
 
 class IDMTAudioFXDataset(Dataset):
     """
-    Pairs dry (NoFX) and wet (Effect) signals from the IDMT SMT-Audio-Effects dataset.
+    Pairs dry (NoFX) and wet (Effect) signals from the IDMT SMT-Audio-Effects
+    dataset.
     """
 
     def __init__(self, lists_root, samples_root, effect="Chorus", window_size=2048):
@@ -75,8 +81,8 @@ class IDMTAudioFXDataset(Dataset):
         L = self.window_size
         if len(dry) > L:
             start = np.random.randint(0, len(dry) - L)
-            dry = dry[start:start+L]
-            wet = wet[start:start+L]
+            dry = dry[start : start + L]
+            wet = wet[start : start + L]
         else:
             pad = L - len(dry)
             dry = torch.nn.functional.pad(dry, (0, pad))
@@ -84,21 +90,22 @@ class IDMTAudioFXDataset(Dataset):
 
         return dry.float(), wet.float()
 
+
 class IDMTAudioFXClassification(Dataset):
     """
     Pairs signal and label from the IDMT SMT-Audio-Effects dataset.
     """
 
-    def __init__(self, lists_root, samples_root, window_size=2048):
+    def __init__(self, samples_root, window_size=2048):
         self.window_size = window_size
-        self.lists_root = Path(lists_root)
         self.samples_root = Path(samples_root)
+        self.le = LabelEncoder()
+        self.le.fit(os.listdir(self.samples_root))
 
-
-        pairs= []
-        for folder in self.samples_root:
-            for audio in folder.glob("*.wav"):
-                pairs.append([self.samples_root / folder / audio, folder])
+        pairs = []
+        for folder in self.samples_root.glob("*"):
+            for audio_path in folder.glob("*.wav"):
+                pairs.append([audio_path, str(folder).split("/")[-1]])
 
         self.pairs = pairs
         print(f"[IDMT FX] Found {len(pairs)} paired samples")
@@ -108,6 +115,7 @@ class IDMTAudioFXClassification(Dataset):
 
     def __getitem__(self, idx):
         audio_path, label = self.pairs[idx]
+        label = self.le.transform([label])[0]
         audio, _ = torchaudio.load(audio_path)
 
 
@@ -121,9 +129,8 @@ class IDMTAudioFXClassification(Dataset):
         L = self.window_size
         if len(audio) > L:
             start = np.random.randint(0, len(audio) - L)
-            audio = audio[start:start+L]
+            audio = audio[start : start + L]
         else:
             pad = L - len(audio)
             audio = torch.nn.functional.pad(audio, (0, pad))
-
         return audio.float(), label
